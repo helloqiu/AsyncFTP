@@ -1,0 +1,11 @@
+language: python
+python:
+- "3.6"
+install:
+- pip install -r dev-requirements.txt
+script:
+- coverage run --source asyncftp -m py.test && coverage report
+after_success:
+- pip install codecov
+- CODECOV_TOKEN="fd9d2252-9b31-405d-b21d-e55b23e45158"
+- codecov -t fd9d2252-9b31-405d-b21d-e55b23e45158
