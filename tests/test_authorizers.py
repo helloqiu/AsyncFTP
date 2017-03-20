@@ -40,3 +40,14 @@ def test_check_permissions():
         authorizer.check_permissions("喵")
     assert e.value.args[0] == '{} is not a valid permission'.format("喵")
     authorizer.check_permissions("elradfmwM")
+
+
+def test_add_anonymous():
+    authorizer = BaseAuthorizer()
+    homedir = os.path.join(os.getcwd(), "tests")
+    authorizer.add_anonymous(homedir)
+    assert "anonymous" in authorizer.user_table.keys()
+    anonymous = authorizer.user_table["anonymous"]
+    assert anonymous["pwd"] == ""
+    assert anonymous["perm"] == "elr"
+    assert anonymous["home"] == homedir

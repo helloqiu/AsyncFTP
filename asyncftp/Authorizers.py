@@ -77,3 +77,17 @@ class BaseAuthorizer(object):
             perm=perm,
         )
         return None
+
+    def add_anonymous(self, homedir, **kwargs):
+        """
+        Add an anonymous user to the virtual user table.
+        :param homedir: The home directory of the virtual user.
+        :param kwargs:
+        :return: None
+        """
+        self.add_user(
+            username="anonymous",
+            password="",
+            homedir=homedir,
+            **kwargs
+        )
