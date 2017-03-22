@@ -51,3 +51,18 @@ def test_add_anonymous():
     assert anonymous["pwd"] == ""
     assert anonymous["perm"] == "elr"
     assert anonymous["home"] == homedir
+
+
+def test_has_perm():
+    authorizer = BaseAuthorizer()
+    homedir = os.getcwd()
+    authorizer.add_anonymous(homedir)
+    assert not authorizer.has_perm("喵喵喵", None)
+    for p in "elr":
+        assert authorizer.has_perm("anonymous", p, os.path.join(homedir, "tests"))
+        assert authorizer.has_perm("anonymous", p)
+    for p in "adfmwM":
+        assert not authorizer.has_perm("anonymous", p, os.path.join(homedir, "tests"))
+        assert not authorizer.has_perm("anonymous", p)
+    for p in "elradfmwM":
+        assert not authorizer.has_perm("anonymous", p, os.path.join(homedir, "../123"))

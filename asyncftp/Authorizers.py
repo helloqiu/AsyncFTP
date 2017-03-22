@@ -91,3 +91,20 @@ class BaseAuthorizer(object):
             homedir=homedir,
             **kwargs
         )
+
+    def has_perm(self, username, perm, path=None):
+        """
+        Check if the user has the permission over path.
+        :param username: The username you want to check.
+        :param perm: The permission you want to check. It should be one of these letters: "elradfmwM".
+        :param path: The path you want to check.
+        :return: True if the user has the permission. Otherwise return False.
+        """
+        if not self.has_user(username):
+            return False
+        if path is None:
+            return perm in self.user_table[username]["perm"]
+        user = self.user_table[username]
+        parent = os.path.join(os.path.realpath(user["home"]), "")
+        path = os.path.join(os.path.realpath(path), "")
+        return os.path.commonprefix([path, parent]) == parent and perm in user["perm"]
