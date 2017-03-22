@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import time
+import os
 from asyncftp.Logger import enable_pretty_logging, logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
@@ -66,24 +68,35 @@ class BaseServer(object):
                 else:
                     cmd, arg = self.get_cmd(d)
                     self.logger.info("GET command \"{}\" arg \"{}\"".format(cmd, arg))
+                    username = self.ip_table[addr[0]]['username']
                     if cmd not in proto_cmds.keys():
                         await client.sendall(self.parse_message(500, 'Command "{}" not understood.'.format(cmd)))
+                        continue
                     elif proto_cmds[cmd]['auth'] and not self.ip_table[addr[0]]['auth']:
                         await client.sendall(self.parse_message(332, 'Need account for login.'))
-                    elif proto_cmds[cmd]['perm'] \
-                            and not self.authorizer.has_perm(
-                                self.ip_table[addr[0]]['username'],
+                        continue
+                    # Check permission
+                    if proto_cmds[cmd]['perm']:
+                        self.logger.debug("Checking permission.")
+                        self.logger.debug("Require permission: \"{}\"".format(proto_cmds[cmd]['perm']))
+                        home = self.authorizer.user_table[username]['home']
+                        self.logger.debug("Home dir: \"{}\"".format(home))
+                        self.logger.debug("Virtual dir: \"{}\"".format(self.ip_table[addr[0]]['path']))
+                        self.logger.debug(
+                            "Join path: \"{}\"".format(os.path.join(home, self.ip_table[addr[0]]['path'])))
+                        if not self.authorizer.has_perm(
+                                username,
                                 proto_cmds[cmd]['perm'],
                                 os.path.join(
-                                    self.authorizer.user_table[self.ip_table[addr[0]]['username']]['home'],
+                                    home,
                                     self.ip_table[addr[0]]['path']),
-                            ):
-                        await client.sendall(self.parse_message(550, 'Not enough privileges.'))
-                    elif cmd == 'USER':
+                        ):
+                            await client.sendall(self.parse_message(550, 'Not enough privileges.'))
+                            continue
+                    if cmd == 'USER':
                         self.ip_table[addr[0]]['username'] = arg
                         await client.sendall(self.parse_message(331, 'Username ok, send password.'))
                     elif cmd == 'PASS':
-                        username = self.ip_table[addr[0]]['username']
                         self.logger.debug("Checking password of \"{}\"".format(username))
                         if not username:
                             self.ip_table[addr[0]]['auth'] = False
@@ -91,7 +104,7 @@ class BaseServer(object):
                         if (self.authorizer.has_user(username) and self.authorizer.user_table[username]["pwd"] == arg) \
                                 or username == "anonymous":
                             self.ip_table[addr[0]]['auth'] = True
-                            self.ip_table[addr[0]]['path'] = '/'
+                            self.ip_table[addr[0]]['path'] = ''
                             await client.sendall(self.parse_message(230, "Login successful."))
                         else:
                             self.ip_table[addr[0]]['auth'] = False
@@ -99,9 +112,17 @@ class BaseServer(object):
                     elif cmd == 'PASV':
                         server = BaseDTPServer(self.host, addr[0])
                         self.ip_table[addr[0]]['DTPServer'] = server
-                        run_in_thread(server.run)
+                        await spawn(server.run)
                         await client.sendall(
                             self.parse_message(227, "Entering passive mode {}.".format(server.getsockname())))
+                    elif cmd == 'MLSD':
+                        result = self.get_mlsx(
+                            os.path.realpath(
+                                os.path.join(
+                                    self.authorizer.user_table[username]["home"],
+                                    self.ip_table[addr[0]]['path'])))
+                        async for f in result:
+                            await self.ip_table[addr[0]]['DTPServer'].send(f + "\r\n")
 
         self.ip_table.pop(addr[0])
         self.logger.info("Connection {} closed".format(addr))
@@ -116,6 +137,18 @@ class BaseServer(object):
         cmd = data.split(' ')[0].upper()
         arg = data[len(cmd) + 1:]
         return cmd, arg
+
+    @staticmethod
+    async def get_mlsx(path):
+        timefunc = time.gmtime
+        for file in os.scandir(path):
+            stat = file.stat()
+            result = ""
+            result += "modify={};".format(time.strftime("%Y%m%d%H%M%S", timefunc(stat[8])))
+            result += "size={};".format(stat[6])
+            result += "type={};".format("dir" if file.is_dir() else "file")
+            result += " {}".format(file.name)
+            yield result
 
 
 class BaseDTPServer(object):
@@ -140,6 +173,7 @@ class BaseDTPServer(object):
         return result
 
     async def run(self):
+        logger.info("DTP Server listening on {}".format(self.sock.getsockname()))
         async with self.sock:
             client, addr = await self.sock.accept()
             if addr[0] == self.ip:
@@ -148,13 +182,14 @@ class BaseDTPServer(object):
                 else:
                     self.connected = True
                     logger.info("DTP Server get connection from {}".format(addr))
+                    s = client.as_stream()
                     while True:
                         message = await self.queue.get()
                         logger.debug("DTP Server get send message.")
-                        await client.sendall(message)
+                        await s.write(message)
             else:
                 logger.info("DTP Server refuses connection from {}".format(addr))
 
-    async def sendall(self, message):
+    async def send(self, message):
         logger.debug("DTP Server put message into queue.")
-        await self.queue.put(message)
+        await self.queue.put(message.encode('utf-8'))

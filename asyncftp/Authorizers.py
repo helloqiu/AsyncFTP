@@ -8,6 +8,7 @@ of the FTP server. It has functions:
 - checking user permissions
 """
 import os
+from asyncftp.Logger import logger
 
 
 class BaseAuthorizer(object):
@@ -101,10 +102,17 @@ class BaseAuthorizer(object):
         :return: True if the user has the permission. Otherwise return False.
         """
         if not self.has_user(username):
+            logger.debug("has_perm can't find user \"{}\"".format(username))
             return False
         if path is None:
             return perm in self.user_table[username]["perm"]
         user = self.user_table[username]
         parent = os.path.join(os.path.realpath(user["home"]), "")
         path = os.path.join(os.path.realpath(path), "")
-        return os.path.commonprefix([path, parent]) == parent and perm in user["perm"]
+        logger.debug("has_perm parent dir: \"{}\"".format(parent))
+        logger.debug("has_perm checking dir: \"{}\"".format(path))
+        path_check = os.path.commonprefix([path, parent]) == parent
+        perm_check = perm in user["perm"]
+        logger.debug("has_perm path check: {}".format(path_check))
+        logger.debug("has_perm perm check: {}".format(perm_check))
+        return path_check and perm_check
