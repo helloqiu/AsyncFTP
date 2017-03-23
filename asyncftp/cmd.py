@@ -12,5 +12,11 @@ proto_cmds = {
     ),
     'MLSD': dict(
         perm='l', auth=True, arg=None
+    ),
+    'PWD': dict(
+        perm=None, auth=True, arg=None
+    ),
+    'TYPE': dict(
+        perm=None, auth=True, arg=True
     )
 }

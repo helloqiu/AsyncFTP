@@ -5,8 +5,11 @@ import os
 from asyncftp.Logger import enable_pretty_logging, logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
-from curio import run, spawn, run_in_thread, Queue
+from curio import run, spawn, Queue
 from curio.socket import *
+
+BINARY = 0
+ASCII = 1
 
 
 class BaseServer(object):
@@ -55,7 +58,8 @@ class BaseServer(object):
                     auth=False,
                     username=None,
                     DTPServer=None,
-                    path=None
+                    path=None,
+                    type=BINARY
                 )
                 await client.sendall(self.parse_message(220, self.banner))
             while True:
@@ -123,6 +127,20 @@ class BaseServer(object):
                                     self.ip_table[addr[0]]['path'])))
                         async for f in result:
                             await self.ip_table[addr[0]]['DTPServer'].send(f + "\r\n")
+                    elif cmd == 'PWD':
+                        await client.sendall(
+                            self.parse_message(257, "\"/{}\" is the current directory.".format(
+                                self.ip_table[addr[0]]['path'])))
+                    elif cmd == 'TYPE':
+                        arg = arg.upper()
+                        if arg == 'I':
+                            self.ip_table[addr[0]]['type'] = BINARY
+                            await client.sendall(self.parse_message(200, "Type set to Binary."))
+                        elif arg == 'A':
+                            self.ip_table[addr[0]]['type'] = ASCII
+                            await client.sendall(self.parse_message(200, "Type set to Ascii."))
+                        else:
+                            await client.sendall(self.parse_message(500, "Type \"{}\" is unknown".format(arg)))
 
         self.ip_table.pop(addr[0])
         self.logger.info("Connection {} closed".format(addr))
