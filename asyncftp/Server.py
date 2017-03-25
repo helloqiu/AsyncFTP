@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import time
-import os
-from stat import filemode
-import pwd
-import grp
 from asyncftp.Logger import enable_pretty_logging, logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
-from asyncftp.utils import parse_message
+from asyncftp.fs2ftp import get_mlsx, get_list
+from asyncftp.utils import parse_message, get_cmd
 from curio import run, spawn, Queue, sleep
 from curio.socket import *
 
@@ -74,7 +70,7 @@ class BaseServer(object):
                     self.logger.debug("No content in message from {}.".format(addr))
                     break
                 else:
-                    cmd, arg = self.get_cmd(d)
+                    cmd, arg = get_cmd(d)
                     self.logger.info("GET command \"{}\" arg \"{}\"".format(cmd, arg))
                     username = self.ip_table[addr[0]]['username']
                     if cmd not in proto_cmds.keys():
@@ -123,12 +119,12 @@ class BaseServer(object):
                         await spawn(server.run, client)
                         await server.ready_and_send(client)
                     elif cmd == 'MLSD':
-                        result = self.get_mlsx(
+                        result = get_mlsx(
                             os.path.realpath(
                                 os.path.join(
                                     self.authorizer.user_table[username]["home"],
                                     self.ip_table[addr[0]]['path'])))
-                        async for f in result:
+                        for f in result:
                             await self.ip_table[addr[0]]['DTPServer'].send(f + "\r\n")
                     elif cmd == 'PWD':
                         await client.sendall(
@@ -146,10 +142,10 @@ class BaseServer(object):
                             await client.sendall(parse_message(500, "Type \"{}\" is unknown".format(arg)))
                     elif cmd == 'FEAT':
                         await client.sendall(parse_message('',
-                                                                '211-Features supported:\n MLST type*;size*;modify*;\n211 End FEAT.'))
+                                                           '211-Features supported:\n MLST type*;size*;modify*;\n211 End FEAT.'))
                     elif cmd == 'LIST':
                         server = self.ip_table[addr[0]]['DTPServer']
-                        result = self.get_list(
+                        result = get_list(
                             os.path.join(
                                 self.authorizer.user_table[username]['home'],
                                 self.ip_table[addr[0]]['path']
@@ -168,47 +164,6 @@ class BaseServer(object):
 
         self.ip_table.pop(addr[0])
         self.logger.info("Connection {} closed".format(addr))
-
-    @staticmethod
-    def get_cmd(data):
-        data = data.decode('utf-8').strip()
-        cmd = data.split(' ')[0].upper()
-        arg = data[len(cmd) + 1:]
-        return cmd, arg
-
-    @staticmethod
-    async def get_mlsx(path):
-        timefunc = time.gmtime
-        for file in os.scandir(path):
-            stat = file.stat()
-            result = ""
-            result += "modify={};".format(time.strftime("%Y%m%d%H%M%S", timefunc(stat[8])))
-            result += "size={};".format(stat[6])
-            result += "type={};".format("dir" if file.is_dir() else "file")
-            result += " {}".format(file.name)
-            yield result
-
-    @staticmethod
-    async def get_list(path):
-        for file in os.scandir(path):
-            stat = file.stat()
-            perms = filemode(stat.st_mode)
-            nlinks = stat.st_nlink
-            if not nlinks:
-                nlinks = 1
-            size = stat.st_size
-            try:
-                uname = pwd.getpwuid(stat.st_uid).pw_name
-            except:
-                uname = 'owner'
-            try:
-                gname = grp.getgrgid(stat.st_gid).gr_name
-            except:
-                gname = 'group'
-            mtime = time.gmtime(stat.st_mtime)
-            mtime = time.strftime("%b %d %H:%M", mtime)
-            mname = file.name
-            yield "{}   {} {}    {}   {} {} {}".format(perms, nlinks, uname, gname, size, mtime, mname)
 
 
 class BaseDTPServer(object):
@@ -252,7 +207,7 @@ class BaseDTPServer(object):
                         message = await self.queue.get()
                         if message == '\r\n'.encode('utf-8'):
                             logger.debug("LIST response over.")
-                            await self.client.sendall(BaseServer.parse_message(226, 'Transfer complete.'))
+                            await self.client.sendall(parse_message(226, 'Transfer complete.'))
                             break
                         logger.debug("DTP Server get send message.\n{}".format(message))
                         await s.write(message)
@@ -270,7 +225,7 @@ class BaseDTPServer(object):
             await sleep(0.1)
         logger.debug("DTP server is ready.")
         await client.sendall(
-            BaseServer.parse_message(227, "Entering passive mode {}.".format(self.getsockname())))
+            parse_message(227, "Entering passive mode {}.".format(self.getsockname())))
 
     async def send(self, message):
         logger.debug("DTP Server put message into queue.")
