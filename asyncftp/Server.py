@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 from asyncftp.Logger import enable_pretty_logging, logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
@@ -71,72 +72,75 @@ class BaseServer(object):
                     break
                 else:
                     cmd, arg = get_cmd(d)
+                    ip = addr[0]
+                    port = addr[1]
+                    user = self.get_ip(ip)
                     self.logger.info("GET command \"{}\" arg \"{}\"".format(cmd, arg))
-                    username = self.ip_table[addr[0]]['username']
+                    username = user['username']
                     if cmd not in proto_cmds.keys():
                         await client.sendall(parse_message(500, 'Command "{}" not understood.'.format(cmd)))
                         continue
-                    elif proto_cmds[cmd]['auth'] and not self.ip_table[addr[0]]['auth']:
+                    elif proto_cmds[cmd]['auth'] and not user['auth']:
                         await client.sendall(parse_message(332, 'Need account for login.'))
                         continue
                     # Check permission
                     if proto_cmds[cmd]['perm']:
                         self.logger.debug("Checking permission.")
                         self.logger.debug("Require permission: \"{}\"".format(proto_cmds[cmd]['perm']))
-                        home = self.authorizer.user_table[username]['home']
+                        home = self.get_user(username)['home']
                         self.logger.debug("Home dir: \"{}\"".format(home))
-                        self.logger.debug("Virtual dir: \"{}\"".format(self.ip_table[addr[0]]['path']))
+                        self.logger.debug("Virtual dir: \"{}\"".format(user['path']))
                         self.logger.debug(
-                            "Join path: \"{}\"".format(os.path.join(home, self.ip_table[addr[0]]['path'])))
+                            "Join path: \"{}\"".format(os.path.join(home, user['path'])))
                         if not self.authorizer.has_perm(
                                 username,
                                 proto_cmds[cmd]['perm'],
                                 os.path.join(
                                     home,
-                                    self.ip_table[addr[0]]['path']),
+                                    user['path']),
                         ):
                             await client.sendall(parse_message(550, 'Not enough privileges.'))
                             continue
                     if cmd == 'USER':
-                        self.ip_table[addr[0]]['username'] = arg
+                        user['username'] = arg
                         await client.sendall(parse_message(331, 'Username ok, send password.'))
                     elif cmd == 'PASS':
                         self.logger.debug("Checking password of \"{}\"".format(username))
                         if not username:
-                            self.ip_table[addr[0]]['auth'] = False
+                            user['auth'] = False
                             await client.sendall(parse_message(503, "Bad sequence of commands."))
-                        if (self.authorizer.has_user(username) and self.authorizer.user_table[username]["pwd"] == arg) \
+                        if (self.authorizer.has_user(username) and self.get_user(username)["pwd"] == arg) \
                                 or username == "anonymous":
-                            self.ip_table[addr[0]]['auth'] = True
-                            self.ip_table[addr[0]]['path'] = ''
+                            user['auth'] = True
+                            user['path'] = ''
                             await client.sendall(parse_message(230, "Login successful."))
                         else:
-                            self.ip_table[addr[0]]['auth'] = False
+                            user['auth'] = False
                             await client.sendall(parse_message(530, "Not logged in :("))
                     elif cmd == 'PASV':
                         server = BaseDTPServer(self.host, addr[0])
-                        self.ip_table[addr[0]]['DTPServer'] = server
+                        user['DTPServer'] = server
                         await spawn(server.run, client)
                         await server.ready_and_send(client)
                     elif cmd == 'MLSD':
                         result = get_mlsx(
                             os.path.realpath(
                                 os.path.join(
-                                    self.authorizer.user_table[username]["home"],
-                                    self.ip_table[addr[0]]['path'])))
+                                    self.get_user(username)["home"],
+                                    user['path'])))
                         for f in result:
-                            await self.ip_table[addr[0]]['DTPServer'].send(f + "\r\n")
+                            await user['DTPServer'].send(f + "\r\n")
                     elif cmd == 'PWD':
                         await client.sendall(
                             parse_message(257, "\"/{}\" is the current directory.".format(
-                                self.ip_table[addr[0]]['path'])))
+                                user['path'])))
                     elif cmd == 'TYPE':
                         arg = arg.upper()
                         if arg == 'I':
-                            self.ip_table[addr[0]]['type'] = BINARY
+                            user['type'] = BINARY
                             await client.sendall(parse_message(200, "Type set to Binary."))
                         elif arg == 'A':
-                            self.ip_table[addr[0]]['type'] = ASCII
+                            user['type'] = ASCII
                             await client.sendall(parse_message(200, "Type set to Ascii."))
                         else:
                             await client.sendall(parse_message(500, "Type \"{}\" is unknown".format(arg)))
@@ -144,11 +148,11 @@ class BaseServer(object):
                         await client.sendall(parse_message('',
                                                            '211-Features supported:\n MLST type*;size*;modify*;\n211 End FEAT.'))
                     elif cmd == 'LIST':
-                        server = self.ip_table[addr[0]]['DTPServer']
+                        server = user['DTPServer']
                         result = get_list(
                             os.path.join(
-                                self.authorizer.user_table[username]['home'],
-                                self.ip_table[addr[0]]['path']
+                                self.get_user(username)['home'],
+                                user['path']
                             )
                         )
                         if not server.connected:
@@ -158,12 +162,43 @@ class BaseServer(object):
                             await client.sendall(
                                 parse_message(125, 'Data connection already open. Transfer starting.')
                             )
-                        async for f in result:
+                        for f in result:
                             await server.send(f + "\r\n")
                         await server.send("\r\n")
+                    elif cmd == 'CWD':
+                        if arg[0] == '/':
+                            path = arg[1:]
+                        else:
+                            path = os.path.join(user['path'], arg)
+                        if path[len(path) - 1] != '/':
+                            path += '/'
+                        if '..' in path:
+                            path = path.replace('..', '/..')
+                        real_path = os.path.realpath(
+                            os.path.join(
+                                self.get_user(username)['home'],
+                                path
+                            )
+                        )
+                        self.logger.debug("CWD get path \"{}\"".format(real_path))
+                        if os.path.exists(real_path) and arg:
+                            user['path'] = os.path.normpath(path)
+                            self.logger.debug("CWD change path to\"{}\"".format(user['path']))
+                            await client.sendall(parse_message(250, 'Directory successfully changed.'))
+                        else:
+                            await client.sendall(parse_message(550, 'Failed to change directory.'))
 
         self.ip_table.pop(addr[0])
         self.logger.info("Connection {} closed".format(addr))
+
+    def get_user(self, username):
+        if username and self.authorizer.has_user(username):
+            return self.authorizer.user_table[username]
+        else:
+            return None
+
+    def get_ip(self, ip):
+        return self.ip_table[ip]
 
 
 class BaseDTPServer(object):

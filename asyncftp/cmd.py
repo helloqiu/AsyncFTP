@@ -24,5 +24,8 @@ proto_cmds = {
     ),
     'LIST': dict(
         perm='l', auth=True, arg=True
+    ),
+    'CWD': dict(
+        perm='e', auth=True, arg=True
     )
 }
