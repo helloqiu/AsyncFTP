@@ -18,5 +18,11 @@ proto_cmds = {
     ),
     'TYPE': dict(
         perm=None, auth=True, arg=True
+    ),
+    'FEAT': dict(
+        perm=None, auth=True, arg=None
+    ),
+    'LIST': dict(
+        perm='l', auth=True, arg=True
     )
 }

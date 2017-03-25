@@ -2,10 +2,13 @@
 
 import time
 import os
+from stat import filemode
+import pwd
+import grp
 from asyncftp.Logger import enable_pretty_logging, logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
-from curio import run, spawn, Queue
+from curio import run, spawn, Queue, sleep
 from curio.socket import *
 
 BINARY = 0
@@ -116,9 +119,8 @@ class BaseServer(object):
                     elif cmd == 'PASV':
                         server = BaseDTPServer(self.host, addr[0])
                         self.ip_table[addr[0]]['DTPServer'] = server
-                        await spawn(server.run)
-                        await client.sendall(
-                            self.parse_message(227, "Entering passive mode {}.".format(server.getsockname())))
+                        await spawn(server.run, client)
+                        await server.ready_and_send(client)
                     elif cmd == 'MLSD':
                         result = self.get_mlsx(
                             os.path.realpath(
@@ -141,6 +143,27 @@ class BaseServer(object):
                             await client.sendall(self.parse_message(200, "Type set to Ascii."))
                         else:
                             await client.sendall(self.parse_message(500, "Type \"{}\" is unknown".format(arg)))
+                    elif cmd == 'FEAT':
+                        await client.sendall(self.parse_message('',
+                                                                '211-Features supported:\n MLST type*;size*;modify*;\n211 End FEAT.'))
+                    elif cmd == 'LIST':
+                        server = self.ip_table[addr[0]]['DTPServer']
+                        result = self.get_list(
+                            os.path.join(
+                                self.authorizer.user_table[username]['home'],
+                                self.ip_table[addr[0]]['path']
+                            )
+                        )
+                        if not server.connected:
+                            await client.sendall(
+                                self.parse_message(150, 'File status okay. About to open data connection.'))
+                        else:
+                            await client.sendall(
+                                self.parse_message(125, 'Data connection already open. Transfer starting.')
+                            )
+                        async for f in result:
+                            await server.send(f + "\r\n")
+                        await server.send("\r\n")
 
         self.ip_table.pop(addr[0])
         self.logger.info("Connection {} closed".format(addr))
@@ -168,6 +191,28 @@ class BaseServer(object):
             result += " {}".format(file.name)
             yield result
 
+    @staticmethod
+    async def get_list(path):
+        for file in os.scandir(path):
+            stat = file.stat()
+            perms = filemode(stat.st_mode)
+            nlinks = stat.st_nlink
+            if not nlinks:
+                nlinks = 1
+            size = stat.st_size
+            try:
+                uname = pwd.getpwuid(stat.st_uid).pw_name
+            except:
+                uname = 'owner'
+            try:
+                gname = grp.getgrgid(stat.st_gid).gr_name
+            except:
+                gname = 'group'
+            mtime = time.gmtime(stat.st_mtime)
+            mtime = time.strftime("%b %d %H:%M", mtime)
+            mname = file.name
+            yield "{}   {} {}    {}   {} {} {}".format(perms, nlinks, uname, gname, size, mtime, mname)
+
 
 class BaseDTPServer(object):
     def __init__(self, host, ip):
@@ -177,7 +222,9 @@ class BaseDTPServer(object):
         self.sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.sock.bind((host, 0))
         self.sock.listen(5)
+        self._ready = False
         self.connected = False
+        self.client = None
 
     def getsockname(self):
         sockname = self.sock.getsockname()
@@ -188,11 +235,14 @@ class BaseDTPServer(object):
             result += (int(p),)
         result += (port >> 8,)
         result += (port - (port >> 8 << 8),)
+        result = str(result).replace(' ', '')
         return result
 
-    async def run(self):
+    async def run(self, client):
         logger.info("DTP Server listening on {}".format(self.sock.getsockname()))
+        self.client = client
         async with self.sock:
+            self._ready = True
             client, addr = await self.sock.accept()
             if addr[0] == self.ip:
                 if self.connected:
@@ -203,10 +253,27 @@ class BaseDTPServer(object):
                     s = client.as_stream()
                     while True:
                         message = await self.queue.get()
-                        logger.debug("DTP Server get send message.")
+                        if message == '\r\n'.encode('utf-8'):
+                            logger.debug("LIST response over.")
+                            await self.client.sendall(BaseServer.parse_message(226, 'Transfer complete.'))
+                            break
+                        logger.debug("DTP Server get send message.\n{}".format(message))
                         await s.write(message)
             else:
                 logger.info("DTP Server refuses connection from {}".format(addr))
+        logger.info("DTP Server close connection.")
+        self.connected = False
+        self._ready = False
+        self.client = None
+
+    async def ready_and_send(self, client):
+        logger.debug("DTP Server ready() is called. Ready: {}".format(self._ready))
+        while not self._ready:
+            logger.debug("Waiting for DTP Server getting ready.")
+            await sleep(0.1)
+        logger.debug("DTP server is ready.")
+        await client.sendall(
+            BaseServer.parse_message(227, "Entering passive mode {}.".format(self.getsockname())))
 
     async def send(self, message):
         logger.debug("DTP Server put message into queue.")
