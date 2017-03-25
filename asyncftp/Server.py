@@ -8,6 +8,7 @@ import grp
 from asyncftp.Logger import enable_pretty_logging, logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
+from asyncftp.utils import parse_message
 from curio import run, spawn, Queue, sleep
 from curio.socket import *
 
@@ -64,7 +65,7 @@ class BaseServer(object):
                     path=None,
                     type=BINARY
                 )
-                await client.sendall(self.parse_message(220, self.banner))
+                await client.sendall(parse_message(220, self.banner))
             while True:
                 self.logger.debug("Waiting for message from {}".format(addr))
                 d = await client.recv(1000)
@@ -77,10 +78,10 @@ class BaseServer(object):
                     self.logger.info("GET command \"{}\" arg \"{}\"".format(cmd, arg))
                     username = self.ip_table[addr[0]]['username']
                     if cmd not in proto_cmds.keys():
-                        await client.sendall(self.parse_message(500, 'Command "{}" not understood.'.format(cmd)))
+                        await client.sendall(parse_message(500, 'Command "{}" not understood.'.format(cmd)))
                         continue
                     elif proto_cmds[cmd]['auth'] and not self.ip_table[addr[0]]['auth']:
-                        await client.sendall(self.parse_message(332, 'Need account for login.'))
+                        await client.sendall(parse_message(332, 'Need account for login.'))
                         continue
                     # Check permission
                     if proto_cmds[cmd]['perm']:
@@ -98,24 +99,24 @@ class BaseServer(object):
                                     home,
                                     self.ip_table[addr[0]]['path']),
                         ):
-                            await client.sendall(self.parse_message(550, 'Not enough privileges.'))
+                            await client.sendall(parse_message(550, 'Not enough privileges.'))
                             continue
                     if cmd == 'USER':
                         self.ip_table[addr[0]]['username'] = arg
-                        await client.sendall(self.parse_message(331, 'Username ok, send password.'))
+                        await client.sendall(parse_message(331, 'Username ok, send password.'))
                     elif cmd == 'PASS':
                         self.logger.debug("Checking password of \"{}\"".format(username))
                         if not username:
                             self.ip_table[addr[0]]['auth'] = False
-                            await client.sendall(self.parse_message(503, "Bad sequence of commands."))
+                            await client.sendall(parse_message(503, "Bad sequence of commands."))
                         if (self.authorizer.has_user(username) and self.authorizer.user_table[username]["pwd"] == arg) \
                                 or username == "anonymous":
                             self.ip_table[addr[0]]['auth'] = True
                             self.ip_table[addr[0]]['path'] = ''
-                            await client.sendall(self.parse_message(230, "Login successful."))
+                            await client.sendall(parse_message(230, "Login successful."))
                         else:
                             self.ip_table[addr[0]]['auth'] = False
-                            await client.sendall(self.parse_message(530, "Not logged in :("))
+                            await client.sendall(parse_message(530, "Not logged in :("))
                     elif cmd == 'PASV':
                         server = BaseDTPServer(self.host, addr[0])
                         self.ip_table[addr[0]]['DTPServer'] = server
@@ -131,20 +132,20 @@ class BaseServer(object):
                             await self.ip_table[addr[0]]['DTPServer'].send(f + "\r\n")
                     elif cmd == 'PWD':
                         await client.sendall(
-                            self.parse_message(257, "\"/{}\" is the current directory.".format(
+                            parse_message(257, "\"/{}\" is the current directory.".format(
                                 self.ip_table[addr[0]]['path'])))
                     elif cmd == 'TYPE':
                         arg = arg.upper()
                         if arg == 'I':
                             self.ip_table[addr[0]]['type'] = BINARY
-                            await client.sendall(self.parse_message(200, "Type set to Binary."))
+                            await client.sendall(parse_message(200, "Type set to Binary."))
                         elif arg == 'A':
                             self.ip_table[addr[0]]['type'] = ASCII
-                            await client.sendall(self.parse_message(200, "Type set to Ascii."))
+                            await client.sendall(parse_message(200, "Type set to Ascii."))
                         else:
-                            await client.sendall(self.parse_message(500, "Type \"{}\" is unknown".format(arg)))
+                            await client.sendall(parse_message(500, "Type \"{}\" is unknown".format(arg)))
                     elif cmd == 'FEAT':
-                        await client.sendall(self.parse_message('',
+                        await client.sendall(parse_message('',
                                                                 '211-Features supported:\n MLST type*;size*;modify*;\n211 End FEAT.'))
                     elif cmd == 'LIST':
                         server = self.ip_table[addr[0]]['DTPServer']
@@ -156,10 +157,10 @@ class BaseServer(object):
                         )
                         if not server.connected:
                             await client.sendall(
-                                self.parse_message(150, 'File status okay. About to open data connection.'))
+                                parse_message(150, 'File status okay. About to open data connection.'))
                         else:
                             await client.sendall(
-                                self.parse_message(125, 'Data connection already open. Transfer starting.')
+                                parse_message(125, 'Data connection already open. Transfer starting.')
                             )
                         async for f in result:
                             await server.send(f + "\r\n")
@@ -167,10 +168,6 @@ class BaseServer(object):
 
         self.ip_table.pop(addr[0])
         self.logger.info("Connection {} closed".format(addr))
-
-    @staticmethod
-    def parse_message(code, message):
-        return "{} {}\r\n".format(code, message).encode("utf-8")
 
     @staticmethod
     def get_cmd(data):
