@@ -52,9 +52,9 @@ class BaseServer(object):
     async def handle_connection(self, client, addr):
         self.logger.info("Connection from {}".format(addr))
         async with client:
-            if addr[0] not in self.ip_table.keys():
+            if addr not in self.ip_table.keys():
                 self.logger.debug("Connection {} is a new connection".format(addr))
-                self.ip_table[addr[0]] = dict(
+                self.ip_table[addr] = dict(
                     port=addr[1],
                     auth=False,
                     username=None,
@@ -72,9 +72,7 @@ class BaseServer(object):
                     break
                 else:
                     cmd, arg = get_cmd(d)
-                    ip = addr[0]
-                    port = addr[1]
-                    user = self.get_ip(ip)
+                    user = self.get_ip(addr)
                     self.logger.info("GET command \"{}\" arg \"{}\"".format(cmd, arg))
                     username = user['username']
                     if cmd not in proto_cmds.keys():
@@ -188,7 +186,7 @@ class BaseServer(object):
                         else:
                             await client.sendall(parse_message(550, 'Failed to change directory.'))
 
-        self.ip_table.pop(addr[0])
+        self.ip_table.pop(addr)
         self.logger.info("Connection {} closed".format(addr))
 
     def get_user(self, username):
@@ -197,8 +195,8 @@ class BaseServer(object):
         else:
             return None
 
-    def get_ip(self, ip):
-        return self.ip_table[ip]
+    def get_ip(self, addr):
+        return self.ip_table[addr]
 
 
 class BaseDTPServer(object):
