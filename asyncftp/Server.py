@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os
+
+try:
+    from os import sendfile
+except ImportError:
+    from sendfile import sendfile
 from asyncftp.Logger import enable_pretty_logging, logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
@@ -203,12 +208,11 @@ class BaseServer(object):
                             await client.sendall(parse_message(554, 'Invalid RETR parameter'))
                             await server.close()
                             continue
-
                         self.logger.debug('RETR get path "{}".'.format(path))
-                        with open(path, mode='r') as f:
-                            for line in f.readlines():
-                                await server.send(line)
-                            await server.send('\r\n')
+                        await server.sendfile(path)
+                    elif cmd == 'QUIT':
+                        await client.sendall(parse_message(220, 'Goodbye! :)'))
+                        break
 
         self.ip_table.pop(addr)
         self.logger.info("Connection {} closed".format(addr))
@@ -234,6 +238,7 @@ class BaseDTPServer(object):
         self._ready = False
         self.connected = False
         self.client = None
+        self.sock_client = None
 
     def getsockname(self):
         sockname = self.sock.getsockname()
@@ -253,6 +258,7 @@ class BaseDTPServer(object):
         async with self.sock:
             self._ready = True
             client, addr = await self.sock.accept()
+            self.sock_client = client
             if addr[0] == self.ip:
                 if self.connected:
                     logger.error("DTP Server is already connected.")
@@ -263,17 +269,17 @@ class BaseDTPServer(object):
                     while True:
                         message = await self.queue.get()
                         if message == '\r\n'.encode('utf-8'):
-                            logger.debug("LIST response over.")
                             await self.client.sendall(parse_message(226, 'Transfer complete.'))
                             break
                         logger.debug("DTP Server get send message.\n{}".format(message))
                         await s.write(message)
             else:
                 logger.info("DTP Server refuses connection from {}".format(addr))
-        logger.info("DTP Server close connection.")
         self.connected = False
         self._ready = False
         self.client = None
+        self.sock_client = None
+        logger.info("DTP Server close connection.")
 
     async def ready_and_send(self, client):
         logger.debug("DTP Server ready() is called. Ready: {}".format(self._ready))
@@ -293,3 +299,32 @@ class BaseDTPServer(object):
         self.connected = False
         self._ready = False
         self.client = None
+        self.sock_client = None
+        logger.info("DTP Server close connection.")
+
+    def fileno(self):
+        return self.sock.fileno()
+
+    async def sendfile(self, path):
+        with open(path, mode='r') as file:
+            offset = 0
+            blocksize = os.path.getsize(path)
+            logger.debug("RETR DTP Server is waiting for writable.")
+            while True:
+                if self.sock_client:
+                    break
+                await sleep(1)
+            await self.sock_client.writeable()
+            logger.debug("RETR DTP Server is writable.")
+            while True:
+                try:
+                    sent = sendfile(self.sock_client.fileno(), file.fileno(), offset, blocksize)
+                except BlockingIOError:
+                    continue
+                logger.debug("RETR DTP Server send {}".format(offset))
+                if sent == 0:
+                    await self.sock_client.close()
+                    await self.client.sendall(parse_message(226, 'Transfer complete.'))
+                    await self.close()
+                    break
+                offset += sent

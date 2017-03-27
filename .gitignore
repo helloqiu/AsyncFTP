@@ -92,3 +92,5 @@ Temporary Items
 venv
 # Pycharm
 .idea
+big_example.py
+big_file
