@@ -27,5 +27,8 @@ proto_cmds = {
     ),
     'CWD': dict(
         perm='e', auth=True, arg=True
+    ),
+    'RETR': dict(
+        perm='r', auth=True, arg=True
     )
 }

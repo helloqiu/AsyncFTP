@@ -168,7 +168,7 @@ class BaseServer(object):
                             path = arg[1:]
                         else:
                             path = os.path.join(user['path'], arg)
-                        if path[len(path) - 1] != '/':
+                        if len(path) > 0 and path[len(path) - 1] != '/':
                             path += '/'
                         if '..' in path:
                             path = path.replace('..', '/..')
@@ -185,6 +185,30 @@ class BaseServer(object):
                             await client.sendall(parse_message(250, 'Directory successfully changed.'))
                         else:
                             await client.sendall(parse_message(550, 'Failed to change directory.'))
+                    elif cmd == 'RETR':
+                        server = user['DTPServer']
+                        if not arg:
+                            await client.sendall(parse_message(554, 'Invalid RETR parameter'))
+                            await server.close()
+                            continue
+                        path = os.path.realpath(
+                            os.path.join(
+                                self.get_user(username)['home'],
+                                os.path.join(
+                                    user['path'], arg
+                                )
+                            )
+                        )
+                        if not os.path.isfile(path):
+                            await client.sendall(parse_message(554, 'Invalid RETR parameter'))
+                            await server.close()
+                            continue
+
+                        self.logger.debug('RETR get path "{}".'.format(path))
+                        with open(path, mode='r') as f:
+                            for line in f.readlines():
+                                await server.send(line)
+                            await server.send('\r\n')
 
         self.ip_table.pop(addr)
         self.logger.info("Connection {} closed".format(addr))
@@ -263,3 +287,9 @@ class BaseDTPServer(object):
     async def send(self, message):
         logger.debug("DTP Server put message into queue.")
         await self.queue.put(message.encode('utf-8'))
+
+    async def close(self):
+        await self.sock.close()
+        self.connected = False
+        self._ready = False
+        self.client = None
