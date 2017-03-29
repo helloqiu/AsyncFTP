@@ -36,5 +36,11 @@ proto_cmds = {
     ),
     'DELE': dict(
         perm='d', auth=True, arg=True
+    ),
+    'RNFR': dict(
+        perm='f', auth=True, arg=True
+    ),
+    'RNTO': dict(
+        perm='f', auth=True, arg=True
     )
 }

@@ -65,7 +65,8 @@ class BaseServer(object):
                     username=None,
                     DTPServer=None,
                     path=None,
-                    type=BINARY
+                    type=BINARY,
+                    rnfr=None
                 )
                 await client.sendall(parse_message(220, self.banner))
             while True:
@@ -259,6 +260,41 @@ class BaseServer(object):
                         os.remove(path)
                         self.logger.debug('Delete file {}.'.format(path))
                         await client.sendall(parse_message(250, 'File removed.'))
+                    elif cmd == 'RNFR':
+                        if not arg:
+                            await client.sendall(parse_message(501, 'Command needs an argument.'))
+                            continue
+                        path = os.path.realpath(
+                            os.path.join(
+                                self.get_user(username)['home'],
+                                os.path.join(
+                                    user['path'], arg
+                                )
+                            )
+                        )
+                        if not os.path.isfile(path):
+                            await client.sendall(parse_message(550, 'No such file or directory.'))
+                            continue
+                        user['rnfr'] = path
+                        await client.sendall(parse_message(350, 'Ready for destination name.'))
+                    elif cmd == 'RNTO':
+                        if not arg:
+                            await client.sendall(parse_message(501, 'Command needs an argument.'))
+                            continue
+                        if not user['rnfr']:
+                            await client.sendall(parse_message(503, 'Bad sequence of commands: use RNFR first.'))
+                            continue
+                        path = os.path.realpath(
+                            os.path.join(
+                                self.get_user(username)['home'],
+                                os.path.join(
+                                    user['path'], arg
+                                )
+                            )
+                        )
+                        os.rename(user['rnfr'], path)
+                        user['rnfr'] = None
+                        await client.sendall(parse_message(250, 'Renaming ok.'))
                     elif cmd == 'QUIT':
                         await client.sendall(parse_message(220, 'Goodbye! :)'))
                         break
