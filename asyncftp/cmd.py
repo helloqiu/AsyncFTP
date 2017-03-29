@@ -30,5 +30,8 @@ proto_cmds = {
     ),
     'RETR': dict(
         perm='r', auth=True, arg=True
+    ),
+    'STOR': dict(
+        perm='w', auth=True, arg=True
     )
 }

@@ -103,6 +103,8 @@ class BaseServer(object):
                                     user['path']),
                         ):
                             await client.sendall(parse_message(550, 'Not enough privileges.'))
+                            if server.connected:
+                                await server.close()
                             continue
                     if cmd == 'USER':
                         user['username'] = arg
@@ -210,6 +212,35 @@ class BaseServer(object):
                             continue
                         self.logger.debug('RETR get path "{}".'.format(path))
                         await server.sendfile(path)
+                    elif cmd == 'STOR':
+                        server = user['DTPServer']
+                        if not arg:
+                            await client.sendall(parse_message(554, 'Invalid STOR parameter'))
+                            await server.close()
+                            continue
+                        path = os.path.realpath(
+                            os.path.join(
+                                self.get_user(username)['home'],
+                                os.path.join(
+                                    user['path'], arg
+                                )
+                            )
+                        )
+                        if os.path.isfile(path):
+                            await client.sendall(parse_message(554, 'Invalid STOR parameter'))
+                            await server.close()
+                            continue
+                        await client.sendall(parse_message(150, 'File status okay. About to open data connection.'))
+                        # Wait DTP Server to get ready
+                        while True:
+                            if server.sock_client:
+                                break
+                            self.logger.debug('Waiting DTP server to get ready.')
+                            await sleep(0.05)
+                        with open(path, mode='w+b') as f:
+                            async for data in server.recv():
+                                f.write(data)
+                        await client.sendall(parse_message(226, 'Transfer complete.'))
                     elif cmd == 'QUIT':
                         await client.sendall(parse_message(220, 'Goodbye! :)'))
                         break
@@ -328,3 +359,10 @@ class BaseDTPServer(object):
                     await self.close()
                     break
                 offset += sent
+
+    async def recv(self):
+        while True:
+            d = await self.sock_client.recv(1024)
+            if not d:
+                break
+            yield d
