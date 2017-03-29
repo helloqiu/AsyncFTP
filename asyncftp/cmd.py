@@ -33,5 +33,8 @@ proto_cmds = {
     ),
     'STOR': dict(
         perm='w', auth=True, arg=True
+    ),
+    'DELE': dict(
+        perm='d', auth=True, arg=True
     )
 }

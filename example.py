@@ -6,6 +6,6 @@ from asyncftp.Server import BaseServer
 
 if __name__ == "__main__":
     authorizer = BaseAuthorizer()
-    authorizer.add_anonymous(os.path.join(os.getcwd(), "tests"), perm='elrw')
+    authorizer.add_anonymous(os.path.join(os.getcwd(), "tests"), perm='elrwd')
     server = BaseServer(authorizer=authorizer, port=8888)
     server.run()

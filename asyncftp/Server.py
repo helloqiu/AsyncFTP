@@ -241,6 +241,24 @@ class BaseServer(object):
                             async for data in server.recv():
                                 f.write(data)
                         await client.sendall(parse_message(226, 'Transfer complete.'))
+                    elif cmd == 'DELE':
+                        if not arg:
+                            await client.sendall(parse_message(501, 'Command needs an argument.'))
+                            continue
+                        path = os.path.realpath(
+                            os.path.join(
+                                self.get_user(username)['home'],
+                                os.path.join(
+                                    user['path'], arg
+                                )
+                            )
+                        )
+                        if not os.path.isfile(path):
+                            await client.sendall(parse_message(550, 'No such file or directory.'))
+                            continue
+                        os.remove(path)
+                        self.logger.debug('Delete file {}.'.format(path))
+                        await client.sendall(parse_message(250, 'File removed.'))
                     elif cmd == 'QUIT':
                         await client.sendall(parse_message(220, 'Goodbye! :)'))
                         break
