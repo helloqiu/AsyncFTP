@@ -1,3 +1,6 @@
 curio
 six
 pysendfile
+docopt
+flask
+psutil

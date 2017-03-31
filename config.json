@@ -1,0 +1,19 @@
+{
+  "host": "127.0.0.1",
+  "port": 2121,
+  "location": [
+    {
+      "path": "./tests",
+      "auth": {
+        "user": "anonymous",
+        "perm": "elradfmwM"
+      }
+    }
+  ],
+  "webui": {
+    "host": "127.0.0.1",
+    "port": 2122
+  },
+  "ip_refuse": [
+  ]
+}

@@ -1,0 +1,102 @@
+swagger: '2.0'
+info:
+  version: "0.0.1"
+  title: AsyncFTP WEB UI
+
+paths:
+  /api/speed:
+    get:
+      description: |
+        Get `speed` object which shows the current network speed of server.
+      parameters:
+        -
+          name: size
+          in: query
+          description: Size of array
+          required: true
+          type: number
+          format: double
+      responses:
+        200:
+          description: Successful response
+          schema:
+            title: speed
+            type: object
+            properties:
+              up:
+                type: string
+              down:
+                type: string
+                
+  /api/run:
+    get:
+      description: |
+        Run the server.
+      responses:
+        200:
+          description:  Successful response
+        404:
+          description: Something wrong :(
+          
+  /api/close:
+    get:
+        description: |
+          Close the server.
+        responses:
+          200:
+            description:  Successful response
+          404:
+            description: Something wrong :(
+              
+  /api/config:
+    get:
+      description: |
+        Get the config of server.
+      responses:
+        200:
+          description: Successful response
+          schema:
+            title: config
+            type: object
+            properties:
+              host:
+                type: string
+              port:
+                type: string
+              version:
+                type: string
+              uptime:
+                type: string
+              refuse_ip:
+                type: array
+                items:
+                  title: ip
+                  type: string
+    post:
+      description: |
+        Change the config of server.
+      parameters:
+        -
+          name: config
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/config'
+      responses:
+        200:
+          description: Successful response
+        
+          
+definitions:
+  config:
+    type: object
+    properties:
+      host:
+        type: string
+      port:
+        type: string
+      refuse_ip:
+        type: array
+        items:
+          title: ip
+          type: string

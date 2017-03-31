@@ -14,7 +14,7 @@ setup(
     url="https://github.com/helloqiu/AsyncFTP",
     packages=find_packages(),
     entry_points={
-        "console_scripts": ["asyncftp=asyncftp.cli:parse"],
+        "console_scripts": ["asyncftpd=asyncftp.cli:parse"],
     },
     install_requires=open("requirements.txt").readlines(),
     license="MIT License",
