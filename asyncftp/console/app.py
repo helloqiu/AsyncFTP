@@ -7,6 +7,9 @@ from psutil import net_io_counters
 from asyncftp import __version__
 import threading
 
+t = time.time()
+net = net_io_counters()
+
 
 def make_app(server):
     app = Flask(__name__)
@@ -14,11 +17,16 @@ def make_app(server):
     @app.route('/api/speed', methods=['GET'])
     def speed():
         if request.method == 'GET':
+            global t
+            global net
+            temp_t = time.time()
             p = net_io_counters()
             result = dict(
-                up=p[0],
-                down=p[1]
+                up=(p[0] - net[0]) / (temp_t - t),
+                down=(p[1] - net[1]) / (temp_t - t)
             )
+            t = temp_t
+            net = p
             return jsonify(result)
 
     @app.route('/api/run', methods=['GET'])

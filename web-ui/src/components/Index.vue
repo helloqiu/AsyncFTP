@@ -3,6 +3,7 @@
     <div class="columns">
       <div class="column is-10-mobile is-offset-1-mobile is-8-tablet is-offset-2-tablet info-container">
         <div class="box info-box index-box">
+          <h1 class="title">主机信息</h1>
           <table class="table is-striped">
             <thead>
               <tr>
@@ -37,6 +38,20 @@
               </tr>
             </tbody>
           </table>
+          <h1 class="title">禁止 IP</h1>
+          <table class="table is-striped">
+            <thead>
+              <tr>
+                <th>NO.</th>
+                <th>IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="!this.has_refuse_ip()">
+                <th>无</th>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -49,9 +64,7 @@ export default {
   data () {
     return {
       info: {},
-      speed: null,
-      speed_last: null,
-      get_speed_time: null
+      speed: null
     }
   },
   created () {
@@ -71,35 +84,42 @@ export default {
       this.$http.get('speed')
       .then(response => response.json())
       .then((json) => {
-        const temp = new Date()
-        this.get_speed_time = temp.getTime() - this.get_speed_time
-        this.speed_last = this.speed
         this.speed = json
       })
     },
     inc_time () {
       this.info.uptime = parseInt(this.info.uptime) + 1
+    },
+    has_refuse_ip () {
+      if (this.info.refuse_ip) {
+        if (this.info.refuse_ip.length > 0) {
+          return true
+        }
+        return false
+      } else {
+        return false
+      }
     }
   },
   computed: {
     speed_up () {
-      if (this.speed && this.speed_last) {
-        const up = prettysize((parseInt(this.speed.up) - parseInt(this.speed_last.up)) / this.get_speed_time * 1000)
+      if (this.speed) {
+        const up = prettysize(parseInt(this.speed.up))
         return `${up}/s`
       } else {
         return ''
       }
     },
     speed_down () {
-      if (this.speed && this.speed_last) {
-        const down = prettysize((parseInt(this.speed.down) - parseInt(this.speed_last.down)) / this.get_speed_time * 1000)
+      if (this.speed) {
+        const down = prettysize(parseInt(this.speed.down))
         return `${down}/s`
       } else {
         return ''
       }
     },
     run_time () {
-      if (this.info) {
+      if (this.info.uptime) {
         let s = parseInt(this.info.uptime)
         let min = parseInt(s / 60)
         s = s % 60
