@@ -10,17 +10,14 @@ import threading
 
 def make_app(server):
     app = Flask(__name__)
-    net = net_io_counters()
-    t = time.time()
 
     @app.route('/api/speed', methods=['GET'])
     def speed():
         if request.method == 'GET':
             p = net_io_counters()
-            d = t - time.time()
             result = dict(
-                up=(p[0] - net[0]) / d,
-                down=(p[1] - net[1]) / d
+                up=p[0],
+                down=p[1]
             )
             return jsonify(result)
 

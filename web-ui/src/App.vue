@@ -1,6 +1,13 @@
 <template>
   <div id="app">
-    <img src="./assets/logo.png">
+    <nav class="nav has-shadow">
+      <div class="nav-left">
+        <a href="/" class="nav-item">
+          <i class="fa fa-server nav-icon" aria-hidden="true"></i>
+          AsyncFTP WEB GUI
+        </a>
+      </div>
+    </nav>
     <router-view></router-view>
   </div>
 </template>
@@ -12,12 +19,11 @@ export default {
 </script>
 
 <style>
-#app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
+  html, body, #app {
+    height: 100%;
+    width: 100%;
+  }
+  .nav-icon {
+    margin-right: 12px;
+  }
 </style>
