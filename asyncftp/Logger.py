@@ -2,8 +2,9 @@
 
 import six
 import sys
-import time
 import logging
+import time
+from logging.handlers import QueueHandler
 
 try:
     import curses
@@ -15,7 +16,7 @@ except ImportError:
 logger = logging.getLogger("asyncftp")
 
 
-def enable_pretty_logging(logger, level='info'):
+def enable_pretty_logging(logger, level='info', queue=None):
     """Turns on formatted logging output as configured.
     """
     logger.setLevel(getattr(logging, level.upper()))
@@ -33,6 +34,10 @@ def enable_pretty_logging(logger, level='info'):
         channel = logging.StreamHandler()
         channel.setFormatter(_LogFormatter(color=color))
         logger.addHandler(channel)
+        if queue:
+            queue_handler = QueueHandler(queue)
+            queue_handler.setFormatter(_LogFormatter(color=color))
+            logger.addHandler(queue_handler)
 
 
 class _LogFormatter(logging.Formatter):

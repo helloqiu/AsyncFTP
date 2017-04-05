@@ -94,3 +94,5 @@ venv
 .idea
 big_example.py
 big_file
+# log file
+*.log

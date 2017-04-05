@@ -6,13 +6,14 @@ try:
     from os import sendfile
 except ImportError:
     from sendfile import sendfile
-from asyncftp.Logger import enable_pretty_logging, logger
+from asyncftp.Logger import logger
 from asyncftp import __version__
 from asyncftp.cmd import proto_cmds
 from asyncftp.fs2ftp import get_mlsx, get_list
 from asyncftp.utils import parse_message, get_cmd
 from curio import run, spawn, Queue, sleep
 from curio.socket import *
+import time
 
 BINARY = 0
 ASCII = 1
@@ -26,7 +27,7 @@ class BaseServer(object):
     banner = "AsyncFTP {} ready.".format(__version__)
 
     def __init__(self, host="127.0.0.1", port=20, authorizer=None,
-                 ip_refuse=set()):
+                 ip_refuse=list()):
         if authorizer is None:
             raise ValueError("The authorizier must not be None.")
         self.host = host
@@ -35,16 +36,46 @@ class BaseServer(object):
         self.ip_refuse = ip_refuse
         self.ip_table = dict()
         self.logger = logger
-        enable_pretty_logging(self.logger, level="debug")
+        self.sock = None
+        self.running = False
+        self._time = None
+        self._task = None
+
+    @property
+    def up_time(self):
+        if self.running:
+            return time.time() - self._time
+        else:
+            return 0
+
+    def add_refuse_ip(self, ip):
+        self.ip_refuse.append(ip)
 
     def run(self):
         run(self._run)
 
+    def close(self):
+        run(self._close)
+
+    async def _close(self):
+        await self._task.cancel()
+        self.sock = None
+        self.ip_table = dict()
+        self.running = False
+        self.logger.info("FTP Server is closed.")
+        self._time = None
+
     async def _run(self):
+        self._task = await spawn(self._start)
+
+    async def _start(self):
         sock = socket(AF_INET, SOCK_STREAM)
         sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         sock.bind((self.host, self.port))
         sock.listen(5)
+        self.sock = sock
+        self._time = time.time()
+        self.running = True
         self.logger.info("FTP Server is listening at {}:{}".format(self.host, self.port))
         async with sock:
             while True:
