@@ -71,6 +71,17 @@ paths:
       responses:
         200:
           description: Successful response
+          
+  /api/log:
+    get:
+      description: |
+        Get the log of server.
+      responses:
+        200:
+          description: Successful response
+          schema:
+            title: log
+            type: string
         
           
 definitions:

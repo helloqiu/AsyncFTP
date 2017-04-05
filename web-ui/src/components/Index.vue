@@ -53,6 +53,7 @@
               </tr>
             </tbody>
           </table>
+          <log-pannel v-bind:log="log"></log-pannel>
         </div>
       </div>
     </div>
@@ -62,16 +63,19 @@
 <script>
 import prettysize from 'prettysize'
 import ControlPannel from '@/components/ControlPannel'
+import LogPannel from '@/components/LogPannel'
 export default {
   data () {
     return {
       info: {},
       speed: null,
-      up_time: 0
+      up_time: 0,
+      log_msg: ''
     }
   },
   components: {
-    ControlPannel
+    ControlPannel,
+    LogPannel
   },
   created () {
     this.$http.get('config')
@@ -80,7 +84,9 @@ export default {
       this.info = json
     })
     this.get_info()
+    this.get_log()
     setInterval(this.get_info, 1000)
+    setInterval(this.get_log, 1000)
   },
   methods: {
     get_info () {
@@ -100,6 +106,12 @@ export default {
       } else {
         return false
       }
+    },
+    get_log () {
+      this.$http.get('log')
+      .then(response => {
+        this.log_msg = response.body
+      })
     }
   },
   computed: {
@@ -132,6 +144,13 @@ export default {
         return `${day} 天 ${hour} 小时 ${min} 分钟 ${s} 秒`
       } else {
         return ''
+      }
+    },
+    log () {
+      if (this.log_msg && typeof this.log_msg !== 'object') {
+        return this.log_msg.slice(0, -2).split('\n')
+      } else {
+        return '无'
       }
     }
   }

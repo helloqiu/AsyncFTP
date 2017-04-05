@@ -11,6 +11,7 @@ Options:
 """
 
 import json
+from queue import Queue
 from docopt import docopt
 from asyncftp import __version__
 from asyncftp.Authorizers import BaseAuthorizer
@@ -41,8 +42,9 @@ def parse():
         authorizer=authorizer,
         ip_refuse=config["ip_refuse"]
     )
-    enable_pretty_logging(server.logger, level='info')
-    flask_app = make_app(server)
+    log_queue = Queue()
+    enable_pretty_logging(server.logger, level='info', queue=log_queue)
+    flask_app = make_app(server, queue=log_queue)
     enable_pretty_logging(flask_app.logger, level='info')
     flask_app.run(
         host=config["webui"]["host"],
@@ -70,5 +72,3 @@ def check_config(config):
         assert "port" in keys
     except AssertionError:
         raise ValueError("Config file is invalid.")
-
-parse()

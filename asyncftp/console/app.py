@@ -6,12 +6,15 @@ import time
 from psutil import net_io_counters
 from asyncftp import __version__
 import threading
+from asyncftp.Logger import _LogFormatter
 
 t = time.time()
 net = net_io_counters()
+formatter = _LogFormatter(color=False)
+log_message = str()
 
 
-def make_app(server):
+def make_app(server, queue):
     app = Flask(__name__)
 
     @app.route('/api/info', methods=['GET'])
@@ -52,5 +55,16 @@ def make_app(server):
                 'version': __version__,
                 'refuse_ip': server.ip_refuse
             })
+
+    @app.route('/api/log', methods=['GET'])
+    def log():
+        if request.method == 'GET':
+            result = str()
+            while not queue.empty():
+                record = queue.get(block=False)
+                result += formatter.format(record) + '\n'
+            global log_message
+            log_message += result
+            return log_message
 
     return app
