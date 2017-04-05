@@ -38,6 +38,7 @@
               </tr>
             </tbody>
           </table>
+          <control-pannel></control-pannel>
           <h1 class="title">禁止 IP</h1>
           <table class="table is-striped">
             <thead>
@@ -60,6 +61,7 @@
 
 <script>
 import prettysize from 'prettysize'
+import ControlPannel from '@/components/ControlPannel'
 export default {
   data () {
     return {
@@ -67,6 +69,9 @@ export default {
       speed: null,
       up_time: 0
     }
+  },
+  components: {
+    ControlPannel
   },
   created () {
     this.$http.get('config')
