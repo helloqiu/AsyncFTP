@@ -51,10 +51,32 @@
               <tr v-if="!this.has_refuse_ip()">
                 <th>无</th>
               </tr>
+              <tr v-else v-for="(ip, index) of this.info.refuse_ip">
+                <th>{{ index }}</th>
+                <th>{{ ip }}</th>
+              </tr>
             </tbody>
+            <button class="button" v-on:click="show_refuse_ip">增加</button>
           </table>
           <log-pannel v-bind:log="log"></log-pannel>
         </div>
+      </div>
+    </div>
+    <div class="modal" v-bind:class="{ 'is-active': show_add_refuse_ip }">
+      <div class="modal-background"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">增加禁止 IP</p>
+          <button class="delete" v-on:click="close_refuse_ip"></button>
+        </header>
+        <section class="modal-card-body">
+          <p class="control">
+            <input type="text" class="input" v-model="refuse_ip_input">
+          </p>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button" v-on:click="set_refuse_ip">确认增加</button>
+        </footer>
       </div>
     </div>
   </div>
@@ -71,7 +93,9 @@ export default {
       speed: null,
       up_time: 0,
       log_msg: '',
-      running: false
+      running: false,
+      show_add_refuse_ip: false,
+      refuse_ip_input: ''
     }
   },
   components: {
@@ -79,11 +103,7 @@ export default {
     LogPannel
   },
   created () {
-    this.$http.get('config')
-    .then(response => response.json())
-    .then((json) => {
-      this.info = json
-    })
+    this.get_config()
     this.get_info()
     this.get_log()
     setInterval(this.get_info, 1000)
@@ -97,6 +117,13 @@ export default {
         this.speed = json.speed
         this.up_time = json.up_time
         this.running = json.running
+      })
+    },
+    get_config () {
+      this.$http.get('config')
+      .then(response => response.json())
+      .then((json) => {
+        this.info = json
       })
     },
     has_refuse_ip () {
@@ -113,6 +140,22 @@ export default {
       this.$http.get('log')
       .then(response => {
         this.log_msg = response.body
+      })
+    },
+    show_refuse_ip () {
+      this.show_add_refuse_ip = true
+    },
+    close_refuse_ip () {
+      this.show_add_refuse_ip = false
+    },
+    set_refuse_ip () {
+      this.$http.post('config', {'refuse_ip': [this.refuse_ip_input]})
+      .then(response => {
+        if (response.body === 'ok') {
+          this.refuse_ip_input = ''
+          this.show_add_refuse_ip = false
+          this.get_config()
+        }
       })
     }
   },

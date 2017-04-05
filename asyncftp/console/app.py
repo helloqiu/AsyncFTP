@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 from flask import Flask
 from flask import request
 from flask import jsonify
@@ -56,6 +57,11 @@ def make_app(server, queue):
                 'version': __version__,
                 'refuse_ip': server.ip_refuse
             })
+        if request.method == 'POST':
+            data = json.loads(request.data.decode('utf-8'))
+            for ip in data['refuse_ip']:
+                server.add_refuse_ip(ip)
+            return 'ok'
 
     @app.route('/api/log', methods=['GET'])
     def log():

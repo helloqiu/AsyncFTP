@@ -48,6 +48,9 @@ class BaseServer(object):
         else:
             return 0
 
+    def add_refuse_ip(self, ip):
+        self.ip_refuse.append(ip)
+
     def run(self):
         run(self._run)
 
