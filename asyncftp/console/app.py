@@ -30,6 +30,7 @@ def make_app(server, queue):
                 down=(p[1] - net[1]) / (temp_t - t)
             )
             result['up_time'] = server.up_time
+            result['running'] = True if server.up_time else False
             t = temp_t
             net = p
             return jsonify(result)

@@ -38,7 +38,7 @@
               </tr>
             </tbody>
           </table>
-          <control-pannel></control-pannel>
+          <control-pannel v-bind:running="running"></control-pannel>
           <h1 class="title">禁止 IP</h1>
           <table class="table is-striped">
             <thead>
@@ -70,7 +70,8 @@ export default {
       info: {},
       speed: null,
       up_time: 0,
-      log_msg: ''
+      log_msg: '',
+      running: false
     }
   },
   components: {
@@ -95,6 +96,7 @@ export default {
       .then((json) => {
         this.speed = json.speed
         this.up_time = json.up_time
+        this.running = json.running
       })
     },
     has_refuse_ip () {
