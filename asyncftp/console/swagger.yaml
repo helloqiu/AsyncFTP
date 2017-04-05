@@ -109,3 +109,5 @@ definitions:
             type: string
       up_time:
         type: string
+      running:
+        type: boolean

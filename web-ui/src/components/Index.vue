@@ -148,7 +148,7 @@ export default {
     },
     log () {
       if (this.log_msg && typeof this.log_msg !== 'object') {
-        return this.log_msg.slice(0, -2).split('\n')
+        return this.log_msg.slice(0, -1).split('\n')
       } else {
         return '无'
       }

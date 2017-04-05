@@ -1,7 +1,7 @@
 <template>
   <div class="log-pannel">
     <h1 class="title">系统输出</h1>
-    <p v-if="log.length === 0">
+    <p v-if="log === '无'" class="log-pannel-none">
       无
     </p>
     <table class="table is-striped" v-else>
@@ -30,5 +30,8 @@ export default {
 <style>
 .log-pannel {
   margin-bottom: 1.5rem;
+}
+.log-pannel-none {
+  margin-left: 12px;
 }
 </style>
