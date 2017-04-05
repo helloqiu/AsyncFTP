@@ -72,5 +72,3 @@ def check_config(config):
         assert "port" in keys
     except AssertionError:
         raise ValueError("Config file is invalid.")
-
-parse()
