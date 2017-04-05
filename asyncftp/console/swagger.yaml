@@ -4,44 +4,30 @@ info:
   title: AsyncFTP WEB UI
 
 paths:
-  /api/speed:
+  /api/info:
     get:
       description: |
-        Get `speed` object which shows the current network speed of server.
-      parameters:
-        -
-          name: size
-          in: query
-          description: Size of array
-          required: true
-          type: number
-          format: double
+        Get `info` object which shows the current information of server.
       responses:
         200:
           description: Successful response
           schema:
-            title: speed
-            type: object
-            properties:
-              up:
-                type: string
-              down:
-                type: string
+            $ref: '#/definitions/info'
                 
-  /api/run:
+  /api/start:
     get:
       description: |
-        Run the server.
+        Start the server.
       responses:
         200:
           description:  Successful response
         404:
           description: Something wrong :(
           
-  /api/close:
+  /api/stop:
     get:
         description: |
-          Close the server.
+          Stop the server.
         responses:
           200:
             description:  Successful response
@@ -100,3 +86,15 @@ definitions:
         items:
           title: ip
           type: string
+  info:
+    type: object
+    properties:
+      speed:
+        type: object
+        properties:
+          up:
+            type: string
+          down:
+            type: string
+      up_time:
+        type: string

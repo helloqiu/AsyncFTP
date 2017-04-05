@@ -64,7 +64,8 @@ export default {
   data () {
     return {
       info: {},
-      speed: null
+      speed: null,
+      up_time: 0
     }
   },
   created () {
@@ -73,22 +74,17 @@ export default {
     .then((json) => {
       this.info = json
     })
-    this.get_speed()
-    setInterval(this.get_speed, 1000)
-    setInterval(this.inc_time, 1000)
+    this.get_info()
+    setInterval(this.get_info, 1000)
   },
   methods: {
-    get_speed () {
-      const d = new Date()
-      this.get_speed_time = d.getTime()
-      this.$http.get('speed')
+    get_info () {
+      this.$http.get('info')
       .then(response => response.json())
       .then((json) => {
-        this.speed = json
+        this.speed = json.speed
+        this.up_time = json.up_time
       })
-    },
-    inc_time () {
-      this.info.uptime = parseInt(this.info.uptime) + 1
     },
     has_refuse_ip () {
       if (this.info.refuse_ip) {
@@ -119,8 +115,8 @@ export default {
       }
     },
     run_time () {
-      if (this.info.uptime) {
-        let s = parseInt(this.info.uptime)
+      if (this.up_time || this.up_time === 0) {
+        let s = parseInt(this.up_time)
         let min = parseInt(s / 60)
         s = s % 60
         let hour = parseInt(min / 60)
