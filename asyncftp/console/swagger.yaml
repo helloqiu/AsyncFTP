@@ -51,8 +51,6 @@ paths:
                 type: string
               version:
                 type: string
-              uptime:
-                type: string
               refuse_ip:
                 type: array
                 items:
@@ -88,10 +86,6 @@ definitions:
   config:
     type: object
     properties:
-      host:
-        type: string
-      port:
-        type: string
       refuse_ip:
         type: array
         items:
