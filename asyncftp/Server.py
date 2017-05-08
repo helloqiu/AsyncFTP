@@ -326,6 +326,20 @@ class BaseServer(object):
                         os.rename(user['rnfr'], path)
                         user['rnfr'] = None
                         await client.sendall(parse_message(250, 'Renaming ok.'))
+                    elif cmd == 'MKD':
+                        if not arg:
+                            await client.sendall(parse_message(501, 'Command needs an argument.'))
+                            continue
+                        path = os.path.realpath(
+                            os.path.join(
+                                self.get_user(username)['home'],
+                                os.path.join(
+                                    user['path'], arg
+                                )
+                            )
+                        )
+                        os.mkdir(path)
+                        await client.sendall(parse_message(250, 'Mkdir ok.'))
                     elif cmd == 'QUIT':
                         await client.sendall(parse_message(220, 'Goodbye! :)'))
                         break

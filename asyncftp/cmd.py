@@ -42,5 +42,8 @@ proto_cmds = {
     ),
     'RNTO': dict(
         perm='f', auth=True, arg=True
+    ),
+    'MKD': dict(
+        perm='m', auth=True, arg=True
     )
 }
