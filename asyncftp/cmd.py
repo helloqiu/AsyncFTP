@@ -45,5 +45,8 @@ proto_cmds = {
     ),
     'MKD': dict(
         perm='m', auth=True, arg=True
+    ),
+    'RMD': dict(
+        perm='d', auth=True, arg=True
     )
 }
