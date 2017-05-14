@@ -13,4 +13,10 @@ git clone https://github.com/helloqiu/AsyncFTP --depth=1
 cd AsyncFTP
 pip install -r requirements.txt
 python setup.py install
+curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+sudo apt-get install -y nodejs
+cd web-ui
+npm i
+npm run dev&
+cd ..
 python example.py
