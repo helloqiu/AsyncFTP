@@ -338,7 +338,10 @@ class BaseServer(object):
                                 )
                             )
                         )
-                        os.mkdir(path)
+                        try:
+                            os.mkdir(path)
+                        except:
+                            await client.sendall(parse_message(550, 'Mkdir error'))
                         await client.sendall(parse_message(250, 'Mkdir ok.'))
                     elif cmd == 'RMD':
                         if not arg:
@@ -352,7 +355,10 @@ class BaseServer(object):
                                 )
                             )
                         )
-                        os.removedirs(path)
+                        try:
+                            os.removedirs(path)
+                        except:
+                            await client.sendall(parse_message(550, 'Remove dir error'))
                         await client.sendall(parse_message(250, 'Remove dir ok.'))
                     elif cmd == 'QUIT':
                         await client.sendall(parse_message(220, 'Goodbye! :)'))
